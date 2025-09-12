@@ -28,13 +28,20 @@ Lighter Simple Reactive Grid (One-in-One-Out)
 
 - 依赖环境
   - Python 3.10+
-  - 已安装 lighter SDK（随 sdk_client.py 以运行时导入方式使用）
+  - 通过 `requirements.txt` 安装 lighter SDK 及依赖
 
 - 克隆与环境
   - 建议使用虚拟环境（venv/conda 等），并在其中安装依赖。
   - macos举例：
     生成虚拟环境：python3 -m venv .venv
     激活虚拟环境：source .venv/bin/activate
+    安装依赖：pip install -r requirements.txt
+
+  - 代理（HTTP/SOCKS5）
+    - HTTP 代理：在 `.env` 或环境变量中设置 `HTTPS_PROXY=http://127.0.0.1:7890`（或 `HTTP_PROXY`）。
+    - SOCKS5 代理（含 WebSocket）：设置 `ALL_PROXY=socks5h://127.0.0.1:7891`（或将 `HTTPS_PROXY` 直接设为 `socks5h://...`）。
+    - 说明：本项目会把 `HTTPS_PROXY/HTTP_PROXY/ALL_PROXY` 解析成 `proxy` 传给 lighter 的 `WsClient`；
+      若使用 SOCKS5，请确保已安装 `PySocks`（已在 `requirements.txt` 中包含）。
 
 
 - 准备 .env（示例）
@@ -127,4 +134,3 @@ Lighter Simple Reactive Grid (One-in-One-Out)
 - 请妥善保管私钥，避免将 .env 与 run.log 提交到版本库。
 - lighter SDK 的接口/模型可能会有版本差异，若遇到不兼容错误，请根据日志提示调整配置或升级依赖。
 - 本策略默认使用 WS 推送来触发快速响应，请确保网络与代理（若有）可用。
-

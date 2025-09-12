@@ -1,0 +1,2 @@
+git+https://github.com/elliottech/lighter-python.git
+PySocks>=1.7
