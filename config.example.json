@@ -1,0 +1,34 @@
+{
+  "symbol": "ENA",
+  "leverage": 5,
+  "margin_mode": "isolated",
+  "lower_price": 0.58,
+  "upper_price": 0.85,
+  "grid_count": 10,
+  "entry_order_size": 1,
+  "tp_gap": 0.003,
+  "max_concurrent_entries": 0,
+  "post_only": true,
+  "time_in_force": "GTC",
+  "price_source": "mark",
+  "poll_interval_sec": 2,
+  "api_host": "https://mainnet.zklighter.elliot.ai",
+  "market_id_map": { "ENA": 29 },
+  "price_decimals": 6,
+  "size_decimals": 6,
+  "account_index": 12345,
+  "api_key_index": 0,
+  "cancel_all_on_exit": false,
+  "use_ws": true,
+  "ws_stale_ms": 1000,
+  "force_sync_every_n": 12,
+  "skip_band_tick_buffer": 1,
+  "state_file": "grid_state.json",
+  "initial_place_batches": [
+    { "count": 30, "delay_sec": 0 },
+    { "count": 30, "delay_sec": 1 },
+    { "count": 40, "delay_sec": 60 }
+  ]
+  ,
+  "place_spacing_ms": 25
+}

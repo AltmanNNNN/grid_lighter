@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+env/
+.env
+.env.*
+*.env
+
+# Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+eggs/
+develop-eggs/
+pip-wheel-metadata/
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Caches
+.cache/
+
+# Logs
+logs/
+*.log
+
+# Type checkers / tools
+.pyre/
+.pytype/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / Editor
+.idea/
+.vscode/
+
+# OS / Misc
+.DS_Store
+Thumbs.db
+
+# Local configs with secrets
+config.json
+grid_state.json
+lighter-short-grid-requirements.md
+run.log
