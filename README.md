@@ -32,9 +32,22 @@ Lighter Simple Reactive Grid (One-in-One-Out)
 - 克隆与环境
   - 建议使用虚拟环境（venv/conda 等），并在其中安装依赖。
   - macos举例：
-    生成虚拟环境：python3 -m venv .venv
-    激活虚拟环境：source .venv/bin/activate（windows系统：.venv/Scripts/activate）
-    安装依赖：pip install -r requirements.txt
+    生成虚拟环境：
+    ```bash
+    python3 -m venv .venv
+    ```
+    激活虚拟环境：
+    ```bash
+    source .venv/bin/activate
+    ```
+    windows系统：
+    ```bash
+    .venv/Scripts/activate
+    ```
+    安装依赖：
+    ```bash
+    pip install -r requirements.txt
+    ```
 
   - 代理（HTTP/SOCKS5）
     - HTTP 代理：在 `.env` 或环境变量中设置 `HTTPS_PROXY=http://127.0.0.1:7890`（或 `HTTP_PROXY`）。
@@ -45,10 +58,12 @@ Lighter Simple Reactive Grid (One-in-One-Out)
 
 - 准备 .env（示例）
   - 在项目根目录创建 `.env`，填入以下必要变量（请使用你的真实参数）：
-    - LIGHTER_ACCOUNT_INDEX=1
-    - LIGHTER_API_KEY_INDEX=0
-    - LIGHTER_API_KEY_PRIVATE_KEY=0x...
-    - 可选代理与 TLS：HTTPS_PROXY=http://127.0.0.1:7890、LIGHTER_VERIFY_SSL=true|false、NO_PROXY=...
+  ```bash
+  LIGHTER_ACCOUNT_INDEX=1
+  LIGHTER_API_KEY_INDEX=0
+  LIGHTER_API_KEY_PRIVATE_KEY=0x...
+    //- 可选代理与 TLS：HTTPS_PROXY=http://127.0.0.1:7890、LIGHTER_VERIFY_SSL=true|false
+  ```
 
 - 配置 config.json
   - 关键字段：
@@ -67,7 +82,10 @@ Lighter Simple Reactive Grid (One-in-One-Out)
     - log_level/log_file: 日志配置（如 INFO / run.log）
 
 - 运行
-  - 命令：python main.py
+  - 命令：
+  ```bash
+  python main.py
+  ```
   - 首次启动：
     - 读取精度与网格，初始化折算；
     - 拉取一次未成交订单做重复去重；
