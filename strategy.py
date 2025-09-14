@@ -589,18 +589,7 @@ class ShortGridStrategy:
                 self._simple_pre_bpx = int(eaten_bpx)
                 self._simple_pending_fill = None
             else:
-                # 避免可能被立即吃单
-                unsafe = False
-                if is_ask and best_ask_int is not None and int(place_bpx) <= int(best_ask_int):
-                    unsafe = True
-                if (not is_ask) and best_bid_int is not None and int(place_bpx) >= int(best_bid_int):
-                    unsafe = True
-                if unsafe:
-                    self.log.debug("SimpleMode: defer place at pre base=%s (avoid crossing book)", int(place_bpx))
-                    # 保留 pending，稍后重试
-                    self._prev_open_sell_prices = set(existing_sell_prices_int)
-                    self._prev_open_buy_prices = set(existing_buy_prices_int)
-                    return
+                # 不再检测是否有吃单风险，直接挂单
                 try:
                     base_amount = max(self._to_base_amount(float(getattr(self.cfg, "entry_order_size", 0))), int(self.min_base_amount))
                     tif = self._map_tif(getattr(self.cfg, "time_in_force", "GTC"))

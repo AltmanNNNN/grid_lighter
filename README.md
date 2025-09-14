@@ -34,7 +34,7 @@ Lighter Simple Reactive Grid (One-in-One-Out)
   - 建议使用虚拟环境（venv/conda 等），并在其中安装依赖。
   - macos举例：
     生成虚拟环境：python3 -m venv .venv
-    激活虚拟环境：source .venv/bin/activate
+    激活虚拟环境：source .venv/bin/activate（windows系统：.venv/Scripts/activate）
     安装依赖：pip install -r requirements.txt
 
   - 代理（HTTP/SOCKS5）

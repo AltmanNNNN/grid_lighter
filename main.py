@@ -22,6 +22,10 @@ def setup_logging(level: str, log_file: Optional[str] = None) -> None:
             pass
     # 降低 lighter 相关日志噪音
     logging.getLogger("lighter").setLevel(logging.WARNING)
+    # 静音 websockets 的 keepalive 错误，只保留我们自定义的 INFO 提示
+    logging.getLogger("websockets").setLevel(logging.CRITICAL)
+    logging.getLogger("websockets.client").setLevel(logging.CRITICAL)
+    logging.getLogger("websockets.sync.client").setLevel(logging.CRITICAL)
 
 
 def _load_dotenv(path: str = ".env") -> None:

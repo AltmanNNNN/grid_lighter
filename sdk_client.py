@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 import time
 import threading
@@ -460,16 +461,45 @@ class LighterClient:
                                        on_order_book_update=_on_ob, on_account_update=_on_acct)
 
         def _runner():
+            # 连接/断开均打印 INFO，避免 websockets 自带 ERROR 污染日志
+            log = logging.getLogger("lighter.ws")
+            url = getattr(self._ws_client, "base_url", f"wss://{host}/stream")
             backoff = 0.5
             while not self._closed:
                 try:
-                    self._ws_client.run()
-                except Exception:
-                    # 简单重连退避：0.5 -> 1 -> 2 -> 5 秒
-                    time.sleep(backoff)
-                    backoff = min(5.0, backoff * 2)
-                else:
-                    # 正常退出（不期望），稍等重试
+                    try:
+                        # 首选手动连接以便在成功握手后输出“connected”日志
+                        from websockets.sync.client import connect as _ws_connect  # type: ignore
+
+                        log.info("WS connecting: %s", url)
+                        with _ws_connect(url) as _ws:
+                            try:
+                                # 将底层 ws 句柄挂到客户端以兼容其回调逻辑
+                                setattr(self._ws_client, "ws", _ws)
+                            except Exception:
+                                pass
+                            log.info("WS connected: %s", url)
+                            for _msg in _ws:
+                                try:
+                                    self._ws_client.on_message(_ws, _msg)
+                                except Exception:
+                                    # 单条消息异常不应中断连接
+                                    pass
+                        # 正常关闭（较少见），按退避重连
+                        log.info("WS closed; retrying in %.1fs", backoff)
+                    except ImportError:
+                        # 回退到 SDK 自带 run()（无法精准打印 connected）
+                        log.info("WS connecting: %s", url)
+                        self._ws_client.run()
+                        log.info("WS closed; retrying in %.1fs", backoff)
+                except Exception as e:
+                    # 断线或异常：仅报 INFO，并进行指数退避重连
+                    try:
+                        emsg = str(e)
+                    except Exception:
+                        emsg = "error"
+                    log.info("WS disconnected: %s; retrying in %.1fs", emsg, backoff)
+                finally:
                     time.sleep(backoff)
                     backoff = min(5.0, backoff * 2)
 

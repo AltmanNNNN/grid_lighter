@@ -20,7 +20,7 @@
   "api_key_index": 0,
   "cancel_all_on_exit": false,
   "use_ws": true,
-  "ws_stale_ms": 1000,
+  "ws_stale_ms": 2000,
   "force_sync_every_n": 12,
   "skip_band_tick_buffer": 1,
   "state_file": "grid_state.json",
