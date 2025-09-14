@@ -580,7 +580,8 @@ class ShortGridStrategy:
             if place_bpx is None:
                 # 若尚无 pre，则以最近档作为 place_bpx
                 place_bpx = int(eaten_bpx)  # 退化为原地换位（通常不会发生）
-            is_ask = bool(int(place_bpx) > int(price_base))
+            # 方向判定：使用“补单价 vs 被吃价”
+            is_ask = bool(int(place_bpx) > int(eaten_bpx))
             # 已存在则直接旋转预挂单价
             already = (int(place_bpx) in (existing_sell_prices_int if is_ask else existing_buy_prices_int))
             if already:
@@ -607,8 +608,10 @@ class ShortGridStrategy:
                         trigger_price=0,
                     )
                     side = "SELL" if is_ask else "BUY"
-                    self.log.info("SimpleMode: placed %s @ base_price=%s (coi=%s); pre -> %s",
-                                  side, int(place_bpx), coi, int(eaten_bpx))
+                    self.log.info(
+                        "SimpleMode: placed %s @ base_price=%s (coi=%s); pre -> %s (eaten_base=%s)",
+                        side, int(place_bpx), coi, int(eaten_bpx), int(eaten_bpx)
+                    )
                     if is_ask:
                         self._plan_sell_prices.add(int(place_bpx))
                     else:
