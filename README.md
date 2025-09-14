@@ -4,7 +4,6 @@ Lighter Simple Reactive Grid (One-in-One-Out)
 - 启动时生成网格，离当前价格最近的一档不挂（称为“预挂单价”），其余价位全部挂上（上方挂卖、下方挂买）。
 - 每当仓位发生变化（通过 WebSocket 推送），推断被吃价，并在“旧预挂单价”挂入 1 笔，然后将“预挂单价”更新为被吃价，保证“吃一个补一个”。
 - 自动处理同侧同价的重复挂单（保留最早一条，撤掉其余），避免状态膨胀。
-- 避免穿价（会被立即成交）的下单，会延后到下一轮；失败的下单进入重试队列，最终补齐覆盖。
 
 --
 
@@ -14,7 +13,7 @@ Lighter Simple Reactive Grid (One-in-One-Out)
   - 预挂单价机制：最近档不挂，吃单后预挂单价与被吃价轮换。
   - WS 推送触发：账户仓位变更即刻触发一次 `_tick()`，不依赖固定轮询。
   - 重复挂单清理：同侧同价只保留 `order_index` 最小的一条。
-  - 安全与重试：避免穿价；下单失败会进入重试队列。
+  - 安全与重试：下单失败会进入重试队列。
 - sdk_client.py: 极简版 lighter 同步客户端封装（REST + 可选 WS + 签名下单）。
   - 提供价格、盘口、未成交订单、仓位、下单/撤单、设置杠杆、全撤等能力。
 - grid.py: 网格生成工具。
@@ -56,7 +55,7 @@ Lighter Simple Reactive Grid (One-in-One-Out)
     - symbol: 市场符号（例如 "ENA"），或直接提供 market_id
     - market_id_map: { "ENA": 29 } 这样的映射（若未直接给 market_id）
     - api_host: API 地址（主网/测试网）
-    - lower_price/upper_price + grid_count 或 grid_step: 网格区间与密度
+    - lower_price/upper_price + grid_count 或 grid_step: 网格区间与密度, 网格不能太密，考虑每格差价在点差的3倍及以上
     - entry_order_size: 每笔下单的基础数量（浮点，内部会转换为整数 base 单位）
     - post_only: 是否使用 POST_ONLY（建议 true）
     - time_in_force: 默认 GTC
