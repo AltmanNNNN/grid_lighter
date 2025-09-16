@@ -585,9 +585,7 @@ class ShortGridStrategy:
             # 已存在则直接旋转预挂单价
             already = (int(place_bpx) in (existing_sell_prices_int if is_ask else existing_buy_prices_int))
             if already:
-                self.log.info("SimpleMode: pre already placed @ base=%s; rotate pre to eaten=%s",
-                              int(place_bpx), int(eaten_bpx))
-                self._simple_pre_bpx = int(eaten_bpx)
+                self.log.info("SimpleMode: pre already placed @ base=%s; skip refill", int(place_bpx))
                 self._simple_pending_fill = None
             else:
                 # 不再检测是否有吃单风险，直接挂单
