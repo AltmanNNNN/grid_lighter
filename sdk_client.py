@@ -197,6 +197,9 @@ class LighterClient:
         authorization: str | None = None,
         auth: str | None = None,
     ):
+        logging.getLogger("sdk_client.rest").info(
+            "REST get_open_orders: account=%s market=%s", int(account_index), int(market_id)
+        )
         return self._run(
             self._get_open_orders_async(account_index, market_id, authorization=authorization, auth=auth)
         )
@@ -461,8 +464,9 @@ class LighterClient:
                                        on_order_book_update=_on_ob, on_account_update=_on_acct)
 
         def _runner():
-            # 连接/断开均打印 INFO，避免 websockets 自带 ERROR 污染日志
+            # 连接/断开均打印日志，便于在主流程观察 WS 状态
             log = logging.getLogger("lighter.ws")
+            status_log = logging.getLogger("sdk_client.ws")
             url = getattr(self._ws_client, "base_url", f"wss://{host}/stream")
             backoff = 0.5
             while not self._closed:
@@ -472,6 +476,7 @@ class LighterClient:
                         from websockets.sync.client import connect as _ws_connect  # type: ignore
 
                         log.info("WS connecting: %s", url)
+                        status_log.info("WS connecting: %s", url)
                         with _ws_connect(url) as _ws:
                             try:
                                 # 将底层 ws 句柄挂到客户端以兼容其回调逻辑
@@ -479,6 +484,7 @@ class LighterClient:
                             except Exception:
                                 pass
                             log.info("WS connected: %s", url)
+                            status_log.info("WS connected: %s", url)
                             for _msg in _ws:
                                 try:
                                     self._ws_client.on_message(_ws, _msg)
@@ -487,11 +493,14 @@ class LighterClient:
                                     pass
                         # 正常关闭（较少见），按退避重连
                         log.info("WS closed; retrying in %.1fs", backoff)
+                        status_log.warning("WS closed; retrying in %.1fs", backoff)
                     except ImportError:
                         # 回退到 SDK 自带 run()（无法精准打印 connected）
                         log.info("WS connecting: %s", url)
+                        status_log.info("WS connecting via sdk.run(): %s", url)
                         self._ws_client.run()
                         log.info("WS closed; retrying in %.1fs", backoff)
+                        status_log.warning("WS closed; retrying in %.1fs", backoff)
                 except Exception as e:
                     # 断线或异常：仅报 INFO，并进行指数退避重连
                     try:
@@ -499,6 +508,7 @@ class LighterClient:
                     except Exception:
                         emsg = "error"
                     log.info("WS disconnected: %s; retrying in %.1fs", emsg, backoff)
+                    status_log.warning("WS disconnected: %s; retrying in %.1fs", emsg, backoff)
                 finally:
                     time.sleep(backoff)
                     backoff = min(5.0, backoff * 2)
