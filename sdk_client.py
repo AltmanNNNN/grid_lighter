@@ -197,9 +197,6 @@ class LighterClient:
         authorization: str | None = None,
         auth: str | None = None,
     ):
-        logging.getLogger("sdk_client.rest").info(
-            "REST get_open_orders: account=%s market=%s", int(account_index), int(market_id)
-        )
         return self._run(
             self._get_open_orders_async(account_index, market_id, authorization=authorization, auth=auth)
         )
