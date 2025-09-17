@@ -490,20 +490,35 @@ class ShortGridStrategy:
                             filled_side = False  # BUY 成交
                         elif curr_signed < prev_signed:
                             filled_side = True   # SELL 成交
+                        filled_quantity = abs(curr_signed - prev_signed)
+                        filled_price_est = None
                         eaten_guess_bpx = None
-                        if filled_side is not None:
-                            # 从上一轮接口挂单集合中，取离当前价格最近的同侧价位作为“被吃猜测”
-                            def _nearest_from_set(cands: set[int], ref: int) -> int | None:
-                                best_d, pick = None, None
-                                for bp in cands:
-                                    d = abs(int(bp) - int(ref))
-                                    if best_d is None or d < best_d:
-                                        best_d, pick = d, int(bp)
-                                return pick
-                            eaten_guess_bpx = _nearest_from_set(
-                                self._prev_open_sell_prices if filled_side else self._prev_open_buy_prices,
-                                int(price_base),
-                            )
+                        if filled_quantity > 0:
+                            try:
+                                curr_size = float(snap[1])
+                                curr_avg = float(snap[2])
+                                prev_size = float(prev_snap[1])
+                                prev_avg = float(prev_snap[2])
+                                numerator = (curr_size * curr_avg) - (prev_size * prev_avg)
+                                filled_price_est = numerator / float(filled_quantity)
+                            except Exception:
+                                filled_price_est = None
+                        if filled_price_est is not None and filled_quantity > 0:
+                            try:
+                                infer_price = abs(float(filled_price_est))
+                                ref_base = int(self._to_base_price(infer_price))
+                                level_candidates = sorted(set(int(x) for x in self.level_base)) if self.level_base else []
+                                if level_candidates:
+                                    best_d, pick = None, None
+                                    for bpx in level_candidates:
+                                        d = abs(int(bpx) - ref_base)
+                                        if best_d is None or d < best_d:
+                                            best_d, pick = d, int(bpx)
+                                    eaten_guess_bpx = pick
+                                else:
+                                    eaten_guess_bpx = ref_base
+                            except Exception:
+                                eaten_guess_bpx = None
 
                         # 最近档位（等距取下方买单）
                         try:
@@ -531,10 +546,11 @@ class ShortGridStrategy:
 
                         side_txt = ("SELL" if filled_side else ("BUY" if filled_side is not None else "?"))
                         self.log.info(
-                            "Fill inference: side=%s eaten_guess_base=%s eaten_guess=%.8f | nearest_base=%s nearest=%.8f",
+                            "Fill inference: side=%s eaten_guess_base=%s eaten_guess=%.8f eaten_qty=%.8f | nearest_base=%s nearest=%.8f",
                             side_txt,
                             str(eaten_guess_bpx),
                             (self._from_base_price(int(eaten_guess_bpx)) if eaten_guess_bpx is not None else float('nan')),
+                            filled_quantity,
                             str(nearest_anchor_bpx),
                             (self._from_base_price(int(nearest_anchor_bpx)) if nearest_anchor_bpx is not None else float('nan')),
                         )
