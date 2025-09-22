@@ -1,5 +1,8 @@
 import logging
 import os
+import signal
+import threading
+import time
 from typing import Optional
 
 
@@ -93,7 +96,32 @@ def main() -> None:
     )
 
     strategy = ShortGridStrategy(cfg=cfg, sdk=sdk)
-    strategy.start()
+    
+    # 设置一个超时机制，防止程序无法正常退出
+    shutdown_timeout = getattr(cfg, "shutdown_timeout_sec", 30)  # 默认30秒超时
+    
+    def force_exit_after_timeout():
+        """在超时后强制退出程序"""
+        time.sleep(shutdown_timeout)
+        if strategy.running:
+            logging.getLogger(__name__).error(
+                "Program failed to exit gracefully within %d seconds, forcing exit...", 
+                shutdown_timeout
+            )
+            os._exit(1)
+    
+    # 启动超时线程（守护线程）
+    timeout_thread = threading.Thread(target=force_exit_after_timeout, daemon=True)
+    timeout_thread.start()
+    
+    try:
+        strategy.start()
+    finally:
+        # 确保程序最终退出
+        logging.getLogger(__name__).info("Main strategy loop completed")
+        if strategy.running:
+            strategy.stop()
+        logging.getLogger(__name__).info("Program exiting normally")
 
 
 if __name__ == "__main__":

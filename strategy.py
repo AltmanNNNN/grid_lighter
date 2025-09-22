@@ -10,16 +10,16 @@ from grid import build_grid
 
 
 class ShortGridStrategy:
-    """做空网格策略（简化“一吃一补”逻辑）。
+    """做空网格策略（简化"一吃一补"逻辑）。
 
     简化规则：
-    - 启动：按网格生成价位，离当前价格最近的一档不挂，记为“预挂单价”；其余档位全部挂上（上方挂卖、下方挂买）。
-    - 运行：每当账户仓位发生变化（WS 推送）时，推断被吃的挂单价位，并立即在“预挂单价”挂入 1 笔；随后把“预挂单价”更新为被吃价位。
-      这样可保证“吃一个补一个”，挂单总量基本恒定。若下单会触发立刻成交，则延后到下一轮再尝试。
+    - 启动：按网格生成价位，离当前价格最近的一档不挂，记为"预挂单价"；其余档位全部挂上（上方挂卖、下方挂买）。
+    - 运行：每当账户仓位发生变化（WS 推送）时，推断被吃的挂单价位，并立即在"预挂单价"挂入 1 笔；随后把"预挂单价"更新为被吃价位。
+      这样可保证"吃一个补一个"，挂单总量基本恒定。若下单会触发立刻成交，则延后到下一轮再尝试。
     - 极端情形（如同侧同价重复、接口失败）：不做取消，只记录告警并排队重试，确保最终补上。
 
     说明：
-    - 该实现不包含任何自动撤单/复杂同步逻辑，仅依赖“预挂单价轮换”的一进一出保证覆盖。
+    - 该实现不包含任何自动撤单/复杂同步逻辑，仅依赖"预挂单价轮换"的一进一出保证覆盖。
     - 所有下单受简单的本地限速控制，避免过度提交。
     """
     def __init__(self, cfg, sdk, logger=None):
@@ -27,6 +27,7 @@ class ShortGridStrategy:
         self.sdk = sdk
         self.log = logger or logging.getLogger(__name__)
         self.running = False
+        self._shutdown_initiated = False  # 防止重复关闭
 
         # 交易所相关
         self.market_id: int = self._resolve_market_id()
@@ -91,20 +92,37 @@ class ShortGridStrategy:
         except Exception as e:
             self.log.warning("initial process error: %s", e)
         try:
+            # 使用较短的睡眠间隔，以便更快响应停止信号
+            poll_interval = float(getattr(self.cfg, "poll_interval_sec", 2))
+            sleep_chunk = min(0.1, poll_interval / 10)  # 将睡眠分割成小块
+            last_tick_time = 0
+            
             while self.running:
                 try:
-                    # 与 WS 事件线程互斥，避免重入
-                    if not self._ready:
-                        # 尚未完成首轮同步，等待下一轮
-                        pass
-                    elif self._processing_lock.acquire(blocking=False):
-                        try:
-                            self._tick()
-                        finally:
-                            self._processing_lock.release()
+                    current_time = time.time()
+                    # 检查是否到了执行tick的时间
+                    if current_time - last_tick_time >= poll_interval:
+                        # 与 WS 事件线程互斥，避免重入
+                        if not self._ready:
+                            # 尚未完成首轮同步，等待下一轮
+                            pass
+                        elif self._processing_lock.acquire(blocking=False):
+                            try:
+                                self._tick()
+                                last_tick_time = current_time
+                            finally:
+                                self._processing_lock.release()
+                        else:
+                            # 无法获取锁，重置时间避免忙等
+                            last_tick_time = current_time
+                    
+                    # 短暂睡眠，但允许快速响应停止信号
+                    time.sleep(sleep_chunk)
+                    
                 except Exception as e:
                     self.log.warning("tick error: %s", e)
-                time.sleep(float(getattr(self.cfg, "poll_interval_sec", 2)))
+                    time.sleep(sleep_chunk)
+                    
         except KeyboardInterrupt:
             self.log.info("KeyboardInterrupt, stopping...")
         finally:
@@ -114,8 +132,14 @@ class ShortGridStrategy:
         self.running = False
 
     def _install_signal_handlers(self) -> None:
-        def _h(_sig, _frm):
-            self.log.info("Signal received, stopping...")
+        def _h(sig_num, _frm):
+            if self._shutdown_initiated:
+                self.log.info("Signal %d received again, forcing exit...", sig_num)
+                os._exit(1)  # 强制退出
+                return
+            
+            self._shutdown_initiated = True
+            self.log.info("Signal %d received, initiating graceful shutdown...", sig_num)
             self.stop()
 
         signal.signal(signal.SIGINT, _h)
@@ -265,9 +289,27 @@ class ShortGridStrategy:
         self._ready = True
 
     def _shutdown(self) -> None:
+        if self._shutdown_initiated:
+            self.log.info("Shutdown already in progress, skipping...")
+            return
+            
+        self._shutdown_initiated = True
+        self.log.info("Starting shutdown sequence...")
+        
+        # 等待 WebSocket 工作线程退出
+        if self._ws_event_thread is not None and self._ws_event_thread.is_alive():
+            self.log.info("Waiting for WebSocket worker thread to exit...")
+            try:
+                self._ws_event_thread.join(timeout=3.0)  # 最多等待3秒
+                if self._ws_event_thread.is_alive():
+                    self.log.warning("WebSocket worker thread did not exit gracefully")
+            except Exception as e:
+                self.log.debug("Error joining ws thread: %s", e)
+        
         # 可选：根据配置决定是否在结束时撤销所有挂单
         try:
             if bool(getattr(self.cfg, "cancel_all_on_exit", False)):
+                self.log.info("Canceling all orders before exit...")
                 self.sdk.cancel_all()
                 self.log.info("Cancel orders success")
         except Exception as e:
@@ -276,9 +318,13 @@ class ShortGridStrategy:
         # 释放 SDK 内部资源（如 SignerClient 会话）
         try:
             if hasattr(self.sdk, "close"):
+                self.log.info("Closing SDK connection...")
                 self.sdk.close()
+                self.log.info("SDK closed successfully")
         except Exception as e:
             self.log.debug("sdk close ignored: %s", e)
+            
+        self.log.info("Shutdown sequence completed")
 
     # --- 后台 WS 日志线程：高频打印 WS 推送的价格（不做下单/查询） ---
     def _start_ws_event_worker(self) -> None:
@@ -299,7 +345,7 @@ class ShortGridStrategy:
             return
 
         def _loop():
-            # 该循环只负责“监听→触发”，所有业务逻辑都在 _tick() 内统一处理
+            # 该循环只负责"监听→触发"，所有业务逻辑都在 _tick() 内统一处理
             while self.running:
                 try:
                     # 未完成初始化（例如网格/精度/首轮同步未完成），先不触发
@@ -334,6 +380,9 @@ class ShortGridStrategy:
                 except Exception:
                     # 任何异常都不应终止该线程，退避更久一点
                     time.sleep(0.1)
+            
+            # 线程退出时打印日志
+            self.log.info("WebSocket event worker thread exiting...")
 
         # 单独的守护线程，名称便于日志/诊断
         t = threading.Thread(target=_loop, name="ws-event-worker", daemon=True)

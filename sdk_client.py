@@ -215,6 +215,7 @@ class LighterClient:
                 use_auth = auth
                 if use_auth is None and self._can_sign():
                     use_auth, _err = await self._create_auth_token()
+                print(f"use_auth: {use_auth}")
                 return await api.account_active_orders(
                     account_index, market_id, authorization=authorization, auth=use_auth
                 )
